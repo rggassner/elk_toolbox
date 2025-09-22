@@ -1,0 +1,13 @@
+PUT _index_template/checkpoint-template
+{
+  "index_patterns": ["checkpoint*"],
+  "template": {
+    "mappings": {
+      "properties": {
+        "src": { "type": "ip" },
+        "dst": { "type": "ip" }
+      }
+    }
+  },
+  "priority": 500
+}
