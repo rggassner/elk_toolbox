@@ -98,7 +98,7 @@ This is an **NDJSON (Newline Delimited JSON)** file used to **import Kibana visu
 * For TOR detection, ensure the dictionary file exists:
 
   ```
-  /opt/netflow/dic/torexil.yml
+  /etc/logstash/dictionaries/tor_nodes/torexil.yml
   ```
 * Update your Elasticsearch credentials in `checkpoint.conf`.
 
