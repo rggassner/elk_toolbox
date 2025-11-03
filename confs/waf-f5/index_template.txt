@@ -1,0 +1,29 @@
+PUT /_index_template/ip_field_template  
+{  
+  "index_patterns": ["waf*"\],  
+  "template": {  
+    "mappings": {  
+      "properties": {  
+        "ip_client": {  
+          "type": "ip"  
+        }  
+      }  
+    }  
+  },  
+  "priority": 100  
+}
+
+PUT /_index_template/ip_field_template  
+{  
+  "index_patterns": ["waf*"\],  
+  "template": {  
+    "mappings": {  
+      "properties": {  
+        "client_ip": {  
+          "type": "ip"  
+        }  
+      }  
+    }  
+  },  
+  "priority": 100  
+}
