@@ -1,7 +1,10 @@
 #!/bin/bash
 # Repo and paths
+SCRIPT_DIR="/opt/hostname_category"
 REPO_URL="https://github.com/olbat/ut1-blacklists.git"
-REPO_DIR="/opt/categorization/ut1-blacklists"
+REPO_DIR="$SCRIPT_DIR/ut1-blacklists"
+
+cd $SCRIPT_DIR
 
 # Clone or update repo
 if [ ! -d "$REPO_DIR/.git" ]; then
@@ -11,3 +14,5 @@ else
 fi
 
 ./update_categories.py
+
+
