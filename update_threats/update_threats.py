@@ -1,15 +1,63 @@
 #!/usr/bin/python3
+"""
+ThreatFox Logstash Dictionary Builder
+======================================
+
+This script downloads threat intelligence data from abuse.ch ThreatFox
+and converts it into multiple YAML dictionary files suitable for
+Logstash lookups.
+
+Workflow overview:
+
+1. Fetches the ThreatFox hostfile containing malicious domains and
+   extracts domain names mapped to 127.0.0.1.
+2. Writes a YAML dictionary marking each domain as "YES" for
+   threat presence detection.
+3. Downloads the full ThreatFox domain CSV export (ZIP archive).
+4. Extracts the archive locally.
+5. Parses the CSV data and generates multiple structured YAML
+   dictionaries for Logstash enrichment, including:
+
+   - malware.yml              → Presence indicator
+   - threat_type.yml          → Threat classification
+   - malware_key.yml          → Malware family key
+   - malware_alias.yml        → Alternate malware names
+   - malware_printable.yml    → Human-readable label
+   - confidence_level.yml     → Confidence score
+   - reference.yml            → External references
+
+Key characteristics:
+
+- Automatically retrieves up-to-date intelligence from ThreatFox.
+- Performs basic preprocessing to normalize CSV formatting.
+- Outputs YAML key-value mappings compatible with Logstash
+  dictionary filter lookups.
+- Designed for integration into SIEM or pipeline-based
+  threat enrichment workflows.
+
+External dependencies:
+    - requests
+    - csv
+    - zipfile
+    - re
+
+Output location:
+    /etc/logstash/dictionaries/threats/
+
+This script is intended to be run in environments where Logstash
+dictionary files are maintained locally and updated periodically.
+"""
 import csv
 import zipfile
 import re
 import requests
-url = "https://threatfox.abuse.ch/downloads/hostfile/"
-zipurl = "https://threatfox.abuse.ch/export/csv/domains/full/"
-local_zip_path = "threatfox.zip"
+URL = "https://threatfox.abuse.ch/downloads/hostfile/"
+ZIPURL = "https://threatfox.abuse.ch/export/csv/domains/full/"
+LOCAL_ZIP_PATH = "threatfox.zip"
 pattern = re.compile(r"127\.0\.0\.1\s+(.*)")
 try:
-    f = open("/etc/logstash/dictionaries/threats/threats.yml", "w") #pylint: disable=consider-using-with
-    response = requests.get(url)
+    f = open("/etc/logstash/dictionaries/threats/threats.yml", "w") #pylint: disable=consider-using-with,unspecified-encoding
+    response = requests.get(URL)#pylint: disable=missing-timeout
     response.raise_for_status() 
     for line in response.iter_lines(decode_unicode=True):
         if line:
@@ -21,18 +69,18 @@ try:
 except requests.exceptions.RequestException as e:
     print(f"Error fetching the URL: {e}")
 try:
-    response = requests.get(zipurl)
+    response = requests.get(ZIPURL) #pylint: disable=missing-timeout
     response.raise_for_status() 
-    with open(local_zip_path, 'wb') as file:
+    with open(LOCAL_ZIP_PATH, 'wb') as file:
         file.write(response.content)
 except requests.exceptions.RequestException as e:
     print(f"Error fetching the URL: {e}")
-    exit()
-extract_path="output"
+    exit() #pylint: disable=consider-using-sys-exit
+EXTRACT_PATH="output"
 try:
-    with zipfile.ZipFile(local_zip_path, 'r') as zip_ref:
-        zip_ref.extractall(extract_path)
-    print(f"ZIP file extracted to {extract_path}")
+    with zipfile.ZipFile(LOCAL_ZIP_PATH, 'r') as zip_ref:
+        zip_ref.extractall(EXTRACT_PATH)
+    print(f"ZIP file extracted to {EXTRACT_PATH}")
 except zipfile.BadZipFile as e:
     print(f"Error uncompressing the file: {e}")
 def preprocess_line(iline):
@@ -79,3 +127,7 @@ with open(CSV_FILE_PATH, mode='r', newline='', encoding='utf-8') as csv_file:
     p.close()
     c.close()
     r.close()
+
+
+
+
