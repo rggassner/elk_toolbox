@@ -58,19 +58,19 @@ pattern = re.compile(r"127\.0\.0\.1\s+(.*)")
 try:
     f = open("/etc/logstash/dictionaries/threats/threats.yml", "w") #pylint: disable=consider-using-with,unspecified-encoding
     response = requests.get(URL)#pylint: disable=missing-timeout
-    response.raise_for_status() 
+    response.raise_for_status()
     for line in response.iter_lines(decode_unicode=True):
         if line:
             match = pattern.match(line)
             if match:
-                domain_name = match.group(1) 
+                domain_name = match.group(1)
                 f.write('"'+domain_name+'": "YES"\n')
     f.close()
 except requests.exceptions.RequestException as e:
     print(f"Error fetching the URL: {e}")
 try:
     response = requests.get(ZIPURL) #pylint: disable=missing-timeout
-    response.raise_for_status() 
+    response.raise_for_status()
     with open(LOCAL_ZIP_PATH, 'wb') as file:
         file.write(response.content)
 except requests.exceptions.RequestException as e:
@@ -103,7 +103,12 @@ def preprocess_line(iline):
 CSV_FILE_PATH = 'output/full_domains.csv'
 with open(CSV_FILE_PATH, mode='r', newline='', encoding='utf-8') as csv_file:
     preprocessed_lines = [preprocess_line(line) for line in csv_file]
-    csv_reader = csv.reader(preprocessed_lines, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+    csv_reader = csv.reader(
+            preprocessed_lines,
+            delimiter=',',
+            quotechar='"',
+            quoting=csv.QUOTE_MINIMAL
+    )
     m = open("/etc/logstash/dictionaries/threats/malware.yml", "w") #pylint: disable=consider-using-with, unspecified-encoding
     t = open("/etc/logstash/dictionaries/threats/threat_type.yml", "w") #pylint: disable=consider-using-with, unspecified-encoding
     f = open("/etc/logstash/dictionaries/threats/malware_key.yml", "w") #pylint: disable=consider-using-with, unspecified-encoding
@@ -127,7 +132,3 @@ with open(CSV_FILE_PATH, mode='r', newline='', encoding='utf-8') as csv_file:
     p.close()
     c.close()
     r.close()
-
-
-
-
