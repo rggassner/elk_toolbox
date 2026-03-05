@@ -142,7 +142,7 @@ PUT _index_template/index_template_waf
       "index.mode": "time_series",
       "index.lifecycle.name": "ilm_policy_waf",
       "index.number_of_shards": 2,
-      "index.number_of_replicas": 1
+      "index.number_of_replicas": 0
     },
     "mappings": {
       "properties": {
