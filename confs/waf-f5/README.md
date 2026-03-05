@@ -111,6 +111,12 @@ PUT _component_template/component_template_waf
         "attack_type": { "type": "keyword", "time_series_dimension": true },
         "client_type": { "type": "keyword", "time_series_dimension": true },
         "response_code": { "type": "keyword", "time_series_dimension": true },
+        "traffic_category": { "type": "keyword", "time_series_dimension": true },
+        "action": { "type": "keyword", "time_series_dimension": true },
+        "host": { "type": "keyword", "time_series_dimension": true },
+        "actual_mitigation_action_reason": { "type": "keyword", "time_series_dimension": true },
+        "bot_signature_category": { "type": "keyword", "time_series_dimension": true },
+        "class": { "type": "keyword", "time_series_dimension": true },
         "method": { "type": "keyword", "time_series_dimension": true }
       }
     }
