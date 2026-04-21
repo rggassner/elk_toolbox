@@ -1,0 +1,2 @@
+pyldap
+sudo apt install build-essential python3-dev libldap2-dev libsasl2-dev libssl-dev
