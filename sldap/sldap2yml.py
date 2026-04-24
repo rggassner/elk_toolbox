@@ -100,9 +100,9 @@ def sanitize_yaml_value(value):
 if __name__ == "__main__":
     # LDAP Connection Parameters - IMPORTANT: Customize these for your LDAP server!
     # For production use, consider loading these from environment variables or a secure configuration file.
-    LDAP_HOST = 'lb.ldap.eparana.parana' # Replace with your LDAP server's hostname or IP address
+    LDAP_HOST = 'ldap.host' # Replace with your LDAP server's hostname or IP address
     LDAP_PORT = 636        # Replace with your LDAP server's port (e.g., 636 for LDAPS)
-    LDAP_SEARCH_BASE = 'dc=pr,dc=gov,dc=br' # Replace with the base DN for your search (e.g., 'ou=Users,dc=example,dc=com')
+    LDAP_SEARCH_BASE = 'dc=pr,dc=com' # Replace with the base DN for your search (e.g., 'ou=Users,dc=example,dc=com')
     LDAP_SEARCH_FILTER = '(objectClass=posixAccount)' # LDAP filter to select entries (e.g., all user accounts)
     LDAP_SCOPE = ldap.SCOPE_SUBTREE # Search scope: BASE, ONELEVEL, or SUBTREE
     LDAP_TIMEOUT = 600 # Timeout in seconds for LDAP operations (e.g., 10 minutes)
