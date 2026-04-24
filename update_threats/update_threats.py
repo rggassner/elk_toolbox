@@ -1,134 +1,131 @@
 #!/usr/bin/python3
-"""
-ThreatFox Logstash Dictionary Builder
-======================================
-
-This script downloads threat intelligence data from abuse.ch ThreatFox
-and converts it into multiple YAML dictionary files suitable for
-Logstash lookups.
-
-Workflow overview:
-
-1. Fetches the ThreatFox hostfile containing malicious domains and
-   extracts domain names mapped to 127.0.0.1.
-2. Writes a YAML dictionary marking each domain as "YES" for
-   threat presence detection.
-3. Downloads the full ThreatFox domain CSV export (ZIP archive).
-4. Extracts the archive locally.
-5. Parses the CSV data and generates multiple structured YAML
-   dictionaries for Logstash enrichment, including:
-
-   - malware.yml              → Presence indicator
-   - threat_type.yml          → Threat classification
-   - malware_key.yml          → Malware family key
-   - malware_alias.yml        → Alternate malware names
-   - malware_printable.yml    → Human-readable label
-   - confidence_level.yml     → Confidence score
-   - reference.yml            → External references
-
-Key characteristics:
-
-- Automatically retrieves up-to-date intelligence from ThreatFox.
-- Performs basic preprocessing to normalize CSV formatting.
-- Outputs YAML key-value mappings compatible with Logstash
-  dictionary filter lookups.
-- Designed for integration into SIEM or pipeline-based
-  threat enrichment workflows.
-
-External dependencies:
-    - requests
-    - csv
-    - zipfile
-    - re
-
-Output location:
-    /etc/logstash/dictionaries/threats/
-
-This script is intended to be run in environments where Logstash
-dictionary files are maintained locally and updated periodically.
-"""
-import csv
-import zipfile
-import re
 import requests
-URL = "https://threatfox.abuse.ch/downloads/hostfile/"
-ZIPURL = "https://threatfox.abuse.ch/export/csv/domains/full/"
-LOCAL_ZIP_PATH = "threatfox.zip"
+import re
+import zipfile
+import csv
+import unicodedata
+
+# Define URL and local file path
+url = "https://threatfox.abuse.ch/downloads/hostfile/"
+zipurl = "https://threatfox.abuse.ch/export/csv/domains/full/"
+local_zip_path = "/opt/threats/threatfox.zip"
+
+# Pattern for matching lines
 pattern = re.compile(r"127\.0\.0\.1\s+(.*)")
+
+
+# --- CLEANING FUNCTION ---
+def clean_string(value):
+    if not value:
+        return ""
+
+    # Normalize unicode to NFC (canonical form)
+    value = unicodedata.normalize("NFC", value)
+
+    # Remove control characters (including special ones like \u009D)
+    value = re.sub(r'[\x00-\x1F\x7F-\x9F]', '', value)
+
+    # Replace common misencoded characters (such as 'ã©' -> 'é')
+    value = value.replace('ã©', 'é').replace('ã‚', 'é').replace('é', 'é')
+
+    # Remove surrounding spaces
+    value = value.strip()
+
+    return value
+
+
+# --- YAML SAFE WRITER ---
+def write_yaml_line(file, key, value, quote_value=True):
+    key = clean_string(key).replace('"', '\\"')
+    value = clean_string(value).replace('"', '\\"')
+
+    if quote_value:
+        file.write(f'"{key}": "{value}"\n')
+    else:
+        file.write(f'"{key}": {value}\n')
+
+
+# --- FETCH HOSTFILE ---
 try:
-    f = open("/etc/logstash/dictionaries/threats/threats.yml", "w") #pylint: disable=consider-using-with,unspecified-encoding
-    response = requests.get(URL)#pylint: disable=missing-timeout
-    response.raise_for_status()
-    for line in response.iter_lines(decode_unicode=True):
-        if line:
+    with open("/etc/logstash/dictionaries/threats/threats.yml", "w", encoding="utf-8") as f:
+        response = requests.get(url)
+        response.raise_for_status()
+
+        for raw_line in response.iter_lines():
+            line = raw_line.decode("utf-8", errors="ignore")
+
             match = pattern.match(line)
             if match:
-                domain_name = match.group(1)
-                f.write('"'+domain_name+'": "YES"\n')
-    f.close()
+                domain_name = clean_string(match.group(1))
+                if domain_name:
+                    write_yaml_line(f, domain_name, "YES")
+
 except requests.exceptions.RequestException as e:
     print(f"Error fetching the URL: {e}")
+
+
+# --- DOWNLOAD ZIP ---
 try:
-    response = requests.get(ZIPURL) #pylint: disable=missing-timeout
+    response = requests.get(zipurl)
     response.raise_for_status()
-    with open(LOCAL_ZIP_PATH, 'wb') as file:
+
+    with open(local_zip_path, 'wb') as file:
         file.write(response.content)
+
 except requests.exceptions.RequestException as e:
     print(f"Error fetching the URL: {e}")
-    exit() #pylint: disable=consider-using-sys-exit
-EXTRACT_PATH="output"
+    exit()
+
+
+# --- EXTRACT ZIP ---
+extract_path = "output"
+
 try:
-    with zipfile.ZipFile(LOCAL_ZIP_PATH, 'r') as zip_ref:
-        zip_ref.extractall(EXTRACT_PATH)
-    print(f"ZIP file extracted to {EXTRACT_PATH}")
+    with zipfile.ZipFile(local_zip_path, 'r') as zip_ref:
+        zip_ref.extractall(extract_path)
+
 except zipfile.BadZipFile as e:
     print(f"Error uncompressing the file: {e}")
-def preprocess_line(iline):
-    """
-    Normalize a line of text by removing spaces after commas.
+    exit()
 
-    This function replaces occurrences of ", " with "," to ensure
-    consistent comma-separated formatting. It is useful when preparing
-    text for parsing or tokenization where extra whitespace may cause
-    inconsistencies.
 
-    Args:
-        iline (str): The input line to preprocess.
+# --- CSV PROCESSING ---
+def preprocess_line(line):
+    return line.replace(", ", ",")
 
-    Returns:
-        str: The normalized line with spaces after commas removed.
-    """
-    return iline.replace(", ", ",")
 
-CSV_FILE_PATH = 'output/full_domains.csv'
-with open(CSV_FILE_PATH, mode='r', newline='', encoding='utf-8') as csv_file:
+csv_file_path = 'output/full_domains.csv'
+
+with open(csv_file_path, mode='r', encoding='utf-8', errors='ignore') as csv_file:
     preprocessed_lines = [preprocess_line(line) for line in csv_file]
-    csv_reader = csv.reader(
-            preprocessed_lines,
-            delimiter=',',
-            quotechar='"',
-            quoting=csv.QUOTE_MINIMAL
-    )
-    m = open("/etc/logstash/dictionaries/threats/malware.yml", "w") #pylint: disable=consider-using-with, unspecified-encoding
-    t = open("/etc/logstash/dictionaries/threats/threat_type.yml", "w") #pylint: disable=consider-using-with, unspecified-encoding
-    f = open("/etc/logstash/dictionaries/threats/malware_key.yml", "w") #pylint: disable=consider-using-with, unspecified-encoding
-    a = open("/etc/logstash/dictionaries/threats/malware_alias.yml", "w") #pylint: disable=consider-using-with, unspecified-encoding
-    p = open("/etc/logstash/dictionaries/threats/malware_printable.yml", "w") #pylint: disable=consider-using-with, unspecified-encoding
-    c = open("/etc/logstash/dictionaries/threats/confidence_level.yml", "w") #pylint: disable=consider-using-with, unspecified-encoding
-    r = open("/etc/logstash/dictionaries/threats/reference.yml", "w") #pylint: disable=consider-using-with, unspecified-encoding
-    for line_number, row in enumerate(csv_reader, start=1):
-        if line_number >= 10 and len(row)>9 :
-            m.write('"'+row[2]+'": "YES"\n')
-            t.write('"'+row[2]+'": "'+row[4]+'"\n')
-            f.write('"'+row[2]+'": "'+row[5]+'"\n')
-            a.write('"'+row[2]+'": "'+row[6]+'"\n')
-            p.write('"'+row[2]+'": "'+row[7]+'"\n')
-            c.write('"'+row[2]+'": '+row[9]+'\n')
-            r.write('"'+row[2]+'": "'+row[10]+'"\n')
-    m.close()
-    t.close()
-    f.close()
-    a.close()
-    p.close()
-    c.close()
-    r.close()
+
+    csv_reader = csv.reader(preprocessed_lines, delimiter=',', quotechar='"')
+
+    with open("/etc/logstash/dictionaries/threats/malware.yml", "w", encoding="utf-8") as m, \
+         open("/etc/logstash/dictionaries/threats/threat_type.yml", "w", encoding="utf-8") as t, \
+         open("/etc/logstash/dictionaries/threats/malware_key.yml", "w", encoding="utf-8") as f, \
+         open("/etc/logstash/dictionaries/threats/malware_alias.yml", "w", encoding="utf-8") as a, \
+         open("/etc/logstash/dictionaries/threats/malware_printable.yml", "w", encoding="utf-8") as p, \
+         open("/etc/logstash/dictionaries/threats/confidence_level.yml", "w", encoding="utf-8") as c, \
+         open("/etc/logstash/dictionaries/threats/reference.yml", "w", encoding="utf-8") as r:
+
+        for line_number, row in enumerate(csv_reader, start=1):
+            if line_number >= 10 and len(row) > 10:
+
+                key = clean_string(row[2])
+
+                if not key:
+                    continue
+
+                write_yaml_line(m, key, "YES")
+                write_yaml_line(t, key, row[4])
+                write_yaml_line(f, key, row[5])
+                write_yaml_line(a, key, row[6])
+                write_yaml_line(p, key, row[7])
+
+                # confidence is numeric → no quotes
+                confidence = clean_string(row[9])
+                if confidence.isdigit():
+                    write_yaml_line(c, key, confidence, quote_value=False)
+
+                write_yaml_line(r, key, row[10])
